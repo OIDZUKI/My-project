@@ -20,17 +20,19 @@ class Main(tk.Frame):
         btn_open_dialogue = tk.Button(toolbar, bg='#d7d8e0', bd=0, image=self.add_img, command=self.open_dialogue)
         btn_open_dialogue.pack(side=tk.LEFT)
 
-        self.tree = ttk.Treeview(self, columns=('ID', 'name', 'tel', 'email'), height=45, show='headings')
+        self.tree = ttk.Treeview(self, columns=('ID', 'name', 'tel', 'email', 'salary'), height=45, show='headings')
 
         self.tree.column('ID', width=30, anchor=tk.CENTER)
         self.tree.column('name', width=300, anchor=tk.CENTER)
         self.tree.column('tel', width=150, anchor=tk.CENTER)
         self.tree.column('email', width=150, anchor=tk.CENTER)
+        self.tree.column('salary', width=150, anchor=tk.CENTER)
 
         self.tree.heading('ID', text='ID')
         self.tree.heading('name', text='ФИО')
         self.tree.heading('tel', text='Телефон')
         self.tree.heading('email', text='E-mail')
+        self.tree.heading('salary', text='Зарплата')
 
         self.tree.pack(side=tk.LEFT)
 
@@ -51,8 +53,8 @@ class Main(tk.Frame):
         Child()
 
     # Метод записи значений в таблицу 
-    def records(self, name, tel, email):
-        self.db.insert_data(name, tel, email)
+    def records(self, name, tel, email, salary):
+        self.db.insert_data(name, tel, email, salary)
         self.view_records()
     
     # Метод отображения значений в таблице
@@ -66,8 +68,8 @@ class Main(tk.Frame):
         Update()
     
     # Метод записи изменений в контакты таблицы
-    def update_records(self, name, tel, email):
-        self.db.cursor.execute('''UPDATE db SET name=?, tel=?, email=? WHERE id=?''', (name, tel, email, self.tree.set(self.tree.selection() [0], '#1')))
+    def update_records(self, name, tel, email, salary):
+        self.db.cursor.execute('''UPDATE db SET name=?, tel=?, email=?, salary=? WHERE id=?''', (name, tel, email, salary, self.tree.set(self.tree.selection() [0], '#1')))
         self.db.conn.commit()
         self.view_records()
 
@@ -85,7 +87,7 @@ class Main(tk.Frame):
     # Метод записи поиска контакта по имени
     def search_records(self, name):
         name = ('%' + name + '%')
-        self.db.cursor.execute('SELECT * FROM db WHERE name LIKE ?', (name,))
+        self.db.cursor.execute('SELECT * FROM db WHERE name LIKE ?', (name))
         [self.tree.delete(i) for i in self.tree.get_children()]
         [self.tree.insert('', 'end', values=row) for row in self.db.cursor.fetchall()]
 
@@ -145,13 +147,16 @@ class Child(tk.Toplevel):
         label_select.place(x=50, y=80)
         label_sum = tk.Label(self, text='E-mail:')
         label_sum.place(x=50, y= 110)
-
+        label_salary = tk.Label(self, text='Зарплата:')
+        label_salary.place(x=50, y=140)
         self.entry_name = ttk.Entry(self)
         self.entry_name.place(x=200, y=50)
         self.entry_tel = ttk.Entry(self)
         self.entry_tel.place(x=200, y=80)
         self.entry_email = ttk.Entry(self)
         self.entry_email.place(x=200, y=110)
+        self.entry_salary = ttk.Entry(self)
+        self.entry_salary.place(x=200, y=140) 
 
         self.btn_cancel = ttk.Button (self, text='Закрыть', command=self.destroy)
         self.btn_cancel.place(x=300, y=170)
@@ -162,7 +167,8 @@ class Child(tk.Toplevel):
         self.btn_ok.bind('<Button-1>', lambda event: 
                          self.view.records(self.entry_name.get(),
                                            self.entry_tel.get(),
-                                           self.entry_email.get()))
+                                           self.entry_email.get(),
+                                           self.entry_salary.get()))
 
 # Класс окна измения данных контакта
 class Update(Child):
@@ -174,7 +180,7 @@ class Update(Child):
             self.db = db
             self.default_data()
 
-        #
+        # Метод добавления интерфейса на окно изменения (Кнопки, строки для изменения данных)
         def init_edit(self):
             self.title('Редактировать контакт')
             btn_edit = ttk.Button(self, text='Редактировать')
@@ -182,16 +188,19 @@ class Update(Child):
             btn_edit.bind('<Button-1>', lambda event:
                           self.view.update_records(self.entry_name.get(),
                                                    self.entry_tel.get(),
-                                                   self.entry_email.get()))
+                                                   self.entry_email.get(),
+                                                   self.entry_salary.get()))
             btn_edit.bind('<Button-1>', lambda event: self.destroy(), add='+')
             self.btn_ok.destroy()
-
+        
+        # Метод добавления интерфейса на окно изменения (Кнопки, строки для изменения данных)
         def default_data(self):
             self.db.cursor.execute('SELECT * FROM db WHERE id=?', self.view.tree.set(self.view.tree.selection() [0], '#1'))
             row = self.db.cursor.fetchall()
             self.entry_name.insert(0, row[0][1])
             self.entry_tel.insert(0, row[0][2])
             self.entry_email.insert(0, row[0][3])
+            self.entry_salary.insert(0, row[0][4])
 
 class DB:
     def __init__(self):
@@ -202,14 +211,15 @@ class DB:
                 id INTEGER PRIMARY KEY,
                 name TEXT,
                 tel TEXT,
-                email TEXT
+                email TEXT,
+                salary TEXT
             )'''
         )
         self.conn.commit()
 
-    def insert_data(self, name, tel, email):
+    def insert_data(self, name, tel, email, salary):
         self.cursor.execute(
-            '''INSERT INTO db(name, tel, email) VALUES(?, ?, ?)''', (name, tel, email)
+            '''INSERT INTO db(name, tel, email, salary) VALUES(?, ?, ?, ?)''', (name, tel, email, salary)
         )
         self.conn.commit()
 
@@ -219,7 +229,7 @@ if __name__ == '__main__':
     db = DB()
     app = Main(root)
     app.pack()
-    root.title('Телефонная книга')
-    root.geometry('665x450')
+    root.title('Список сотрудников компании')
+    root.geometry('800x450')
     root.resizable(False, False)
     root.mainloop()
